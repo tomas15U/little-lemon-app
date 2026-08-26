@@ -12,11 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandColors, BrandFonts } from '@/constants/brand';
-import { useOnboarding } from '@/context/onboarding-context';
+import { useUserSession } from '@/context/user-session-context';
 import { isValidEmail, isValidName } from '@/utils/validation';
 
 export default function Onboarding() {
-  const { completeOnboarding } = useOnboarding();
+  const { completeOnboarding } = useUserSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
 
@@ -75,7 +75,7 @@ export default function Onboarding() {
         <View style={styles.footer}>
           <Pressable
             disabled={!canSubmit}
-            onPress={completeOnboarding}
+            onPress={() => completeOnboarding({ firstName: name.trim(), email: email.trim() })}
             style={[styles.button, !canSubmit && styles.buttonDisabled]}>
             <Text style={[styles.buttonText, !canSubmit && styles.buttonTextDisabled]}>
               Next
