@@ -4,15 +4,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { OnboardingProvider, useOnboarding } from '@/context/onboarding-context';
+import { useUserSession, UserSessionProvider } from '@/context/user-session-context';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <OnboardingProvider>
+    <UserSessionProvider>
       <RootNavigator />
-    </OnboardingProvider>
+    </UserSessionProvider>
   );
 }
 
@@ -22,9 +22,9 @@ function RootNavigator() {
     'Karla-Regular': require('@/assets/fonts/Karla-Regular.ttf'),
     'MarkaziText-Regular': require('@/assets/fonts/MarkaziText-Regular.ttf'),
   });
-  const { isLoading: isOnboardingStatusLoading, isOnboardingCompleted } = useOnboarding();
+  const { isLoading: isSessionLoading, isOnboardingCompleted } = useUserSession();
 
-  if (!fontsLoaded || isOnboardingStatusLoading) {
+  if (!fontsLoaded || isSessionLoading) {
     return null;
   }
 
