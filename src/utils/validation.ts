@@ -6,6 +6,11 @@ export function isValidName(name: string): boolean {
   return trimmed.length > 0 && NAME_PATTERN.test(trimmed);
 }
 
+export function isValidOptionalName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed.length === 0 || NAME_PATTERN.test(trimmed);
+}
+
 export function isValidEmail(email: string): boolean {
   return EMAIL_PATTERN.test(email.trim());
 }
