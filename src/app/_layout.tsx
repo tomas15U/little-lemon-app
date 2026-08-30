@@ -36,6 +36,7 @@ function RootNavigator() {
           <Stack.Screen name="index" />
         </Stack.Protected>
         <Stack.Protected guard={isOnboardingCompleted}>
+          <Stack.Screen name="home" />
           <Stack.Screen name="profile" />
         </Stack.Protected>
       </Stack>
