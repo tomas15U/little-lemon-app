@@ -38,7 +38,8 @@
         {
           "photosPermission": "Little Lemon uses your photos so you can set a profile picture."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
