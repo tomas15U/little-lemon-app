@@ -1,17 +1,27 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
+import { CategoryList } from '@/components/category-list';
+import { HeroBanner } from '@/components/hero-banner';
 import { MenuListItem } from '@/components/menu-list-item';
-import { BrandColors } from '@/constants/brand';
+import { BrandColors, BrandFonts } from '@/constants/brand';
 import { useUserSession } from '@/context/user-session-context';
 import { useMenu } from '@/hooks/use-menu';
 
 export default function Home() {
   const { profile } = useUserSession();
-  const { menu, isLoading } = useMenu();
+  const {
+    menu,
+    categories,
+    selectedCategories,
+    toggleCategory,
+    searchText,
+    setSearchText,
+    isLoading,
+  } = useMenu();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -41,7 +51,17 @@ export default function Home() {
           data={menu}
           keyExtractor={(item) => item.name}
           renderItem={({ item }) => <MenuListItem item={item} />}
-          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <>
+              <HeroBanner searchText={searchText} onSearchTextChange={setSearchText} />
+              <Text style={styles.sectionTitle}>Order for delivery!</Text>
+              <CategoryList
+                categories={categories}
+                selectedCategories={selectedCategories}
+                onToggle={toggleCategory}
+              />
+            </>
+          }
         />
       )}
     </SafeAreaView>
@@ -74,7 +94,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  list: {
+  sectionTitle: {
+    fontFamily: BrandFonts.body,
+    fontSize: 20,
+    fontWeight: '700',
+    color: BrandColors.highlightBlack,
     paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
   },
 });
