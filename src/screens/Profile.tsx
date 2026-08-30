@@ -1,15 +1,29 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { CheckboxRow } from '@/components/checkbox-row';
+import { FieldInput } from '@/components/field-input';
 import { BrandColors, BrandFonts } from '@/constants/brand';
 import { useUserSession } from '@/context/user-session-context';
-import { NotificationPreferences, UserProfile } from '@/types/user-profile';
-import { formatUSPhone } from '@/utils/phone';
+import {
+  EMPTY_USER_PROFILE,
+  NotificationPreferences,
+  UserProfile,
+} from '@/types/user-profile';
+import { formatUSPhone, isValidUSPhone } from '@/utils/phone';
+import { isValidEmail, isValidName, isValidOptionalName } from '@/utils/validation';
 
 const NOTIFICATION_OPTIONS: { key: keyof NotificationPreferences; label: string }[] = [
   { key: 'orderStatuses', label: 'Order statuses' },
@@ -20,11 +34,30 @@ const NOTIFICATION_OPTIONS: { key: keyof NotificationPreferences; label: string 
 
 export default function Profile() {
   const { profile, saveProfile, logOut } = useUserSession();
-  const [draft, setDraft] = useState<UserProfile>(profile as UserProfile);
+  const [draft, setDraft] = useState<UserProfile>(profile ?? EMPTY_USER_PROFILE);
 
   useEffect(() => {
     if (profile) setDraft(profile);
   }, [profile]);
+
+  const errors = useMemo(
+    () => ({
+      firstName: isValidName(draft.firstName) ? null : 'Enter a valid first name.',
+      lastName: isValidOptionalName(draft.lastName) ? null : 'Enter a valid last name.',
+      email: isValidEmail(draft.email) ? null : 'Enter a valid email address.',
+      phone:
+        draft.phone.length === 0 || isValidUSPhone(draft.phone)
+          ? null
+          : 'Enter a valid US phone number.',
+    }),
+    [draft]
+  );
+
+  const isDirty = useMemo(
+    () => (profile ? JSON.stringify(profile) !== JSON.stringify(draft) : false),
+    [profile, draft]
+  );
+  const canSave = isDirty && Object.values(errors).every((error) => error === null);
 
   async function handleChangeAvatar() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -58,8 +91,16 @@ export default function Profile() {
   }
 
   function handleSave() {
-    saveProfile(draft);
+    if (!canSave) return;
+    saveProfile({
+      ...draft,
+      firstName: draft.firstName.trim(),
+      lastName: draft.lastName.trim(),
+      email: draft.email.trim(),
+    });
   }
+
+  const saved = profile ?? draft;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -72,98 +113,124 @@ export default function Profile() {
           source={require('@/assets/images/little-lemon-logo.png')}
           contentFit="contain"
         />
-        <Avatar uri={draft.avatarUri} firstName={draft.firstName} lastName={draft.lastName} size={36} />
+        <Avatar
+          uri={saved.avatarUri}
+          firstName={saved.firstName}
+          lastName={saved.lastName}
+          size={36}
+        />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Personal information</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <Text style={styles.title}>Personal information</Text>
 
-        <Text style={styles.label}>Avatar</Text>
-        <View style={styles.avatarRow}>
-          <Avatar uri={draft.avatarUri} firstName={draft.firstName} lastName={draft.lastName} size={64} />
-          <Pressable style={styles.changeButton} onPress={handleChangeAvatar}>
-            <Text style={styles.changeButtonText}>Change</Text>
-          </Pressable>
-          <Pressable
-            style={styles.removeButton}
-            onPress={handleRemoveAvatar}
-            disabled={!draft.avatarUri}>
-            <Text
-              style={[styles.removeButtonText, !draft.avatarUri && styles.removeButtonTextDisabled]}>
-              Remove
-            </Text>
-          </Pressable>
-        </View>
+            <View style={styles.avatarSection}>
+              <Text style={styles.label}>Avatar</Text>
+              <View style={styles.avatarRow}>
+                <Avatar
+                  uri={draft.avatarUri}
+                  firstName={draft.firstName}
+                  lastName={draft.lastName}
+                  size={64}
+                />
+                <Pressable style={styles.changeButton} onPress={handleChangeAvatar}>
+                  <Text style={styles.changeButtonText}>Change</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.removeButton}
+                  onPress={handleRemoveAvatar}
+                  disabled={!draft.avatarUri}>
+                  <Text
+                    style={[
+                      styles.removeButtonText,
+                      !draft.avatarUri && styles.removeButtonTextDisabled,
+                    ]}>
+                    Remove
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>First name</Text>
-          <TextInput
-            style={styles.input}
-            value={draft.firstName}
-            onChangeText={(text) => setDraft((current) => ({ ...current, firstName: text }))}
-            autoCapitalize="words"
-          />
-        </View>
+            <FieldInput
+              label="First name"
+              value={draft.firstName}
+              error={errors.firstName}
+              onChangeText={(text) => setDraft((current) => ({ ...current, firstName: text }))}
+              autoCapitalize="words"
+              autoComplete="given-name"
+            />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Last name</Text>
-          <TextInput
-            style={styles.input}
-            value={draft.lastName}
-            onChangeText={(text) => setDraft((current) => ({ ...current, lastName: text }))}
-            autoCapitalize="words"
-          />
-        </View>
+            <FieldInput
+              label="Last name"
+              value={draft.lastName}
+              error={errors.lastName}
+              onChangeText={(text) => setDraft((current) => ({ ...current, lastName: text }))}
+              autoCapitalize="words"
+              autoComplete="family-name"
+            />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={draft.email}
-            onChangeText={(text) => setDraft((current) => ({ ...current, email: text }))}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </View>
+            <FieldInput
+              label="Email"
+              value={draft.email}
+              error={errors.email}
+              onChangeText={(text) => setDraft((current) => ({ ...current, email: text }))}
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+            />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Phone number</Text>
-          <TextInput
-            style={styles.input}
-            value={draft.phone}
-            onChangeText={(text) =>
-              setDraft((current) => ({ ...current, phone: formatUSPhone(text) }))
-            }
-            placeholder="(217) 555-0113"
-            placeholderTextColor={BrandColors.highlightBlack + '80'}
-            keyboardType="phone-pad"
-            maxLength={14}
-          />
-        </View>
+            <FieldInput
+              label="Phone number"
+              value={draft.phone}
+              error={errors.phone}
+              onChangeText={(text) =>
+                setDraft((current) => ({ ...current, phone: formatUSPhone(text) }))
+              }
+              placeholder="(217) 555-0113"
+              keyboardType="phone-pad"
+              maxLength={14}
+            />
 
-        <Text style={styles.sectionTitle}>Email notifications</Text>
-        {NOTIFICATION_OPTIONS.map((option) => (
-          <CheckboxRow
-            key={option.key}
-            label={option.label}
-            checked={draft.notifications[option.key]}
-            onToggle={() => toggleNotification(option.key)}
-          />
-        ))}
+            <Text style={styles.sectionTitle}>Email notifications</Text>
+            {NOTIFICATION_OPTIONS.map((option) => (
+              <CheckboxRow
+                key={option.key}
+                label={option.label}
+                checked={draft.notifications[option.key]}
+                onToggle={() => toggleNotification(option.key)}
+              />
+            ))}
 
-        <Pressable style={styles.logoutButton} onPress={logOut}>
-          <Text style={styles.logoutButtonText}>Log out</Text>
-        </Pressable>
+            <Pressable style={styles.logoutButton} onPress={logOut}>
+              <Text style={styles.logoutButtonText}>Log out</Text>
+            </Pressable>
 
-        <View style={styles.saveRow}>
-          <Pressable style={styles.discardButton} onPress={handleDiscard}>
-            <Text style={styles.discardButtonText}>Discard changes</Text>
-          </Pressable>
-          <Pressable style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save changes</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+            <View style={styles.saveRow}>
+              <Pressable
+                style={[styles.discardButton, !isDirty && styles.buttonDisabled]}
+                onPress={handleDiscard}
+                disabled={!isDirty}>
+                <Text
+                  style={[styles.discardButtonText, !isDirty && styles.discardButtonTextDisabled]}>
+                  Discard changes
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={!canSave}>
+                <Text style={[styles.saveButtonText, !canSave && styles.saveButtonTextDisabled]}>
+                  Save changes
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -172,6 +239,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: BrandColors.white,
+  },
+  flex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -197,7 +267,13 @@ const styles = StyleSheet.create({
     height: 32,
   },
   content: {
-    padding: 24,
+    padding: 16,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: BrandColors.highlightWhite,
+    borderRadius: 12,
+    padding: 20,
     gap: 16,
   },
   title: {
@@ -215,6 +291,9 @@ const styles = StyleSheet.create({
     fontFamily: BrandFonts.body,
     fontSize: 13,
     color: BrandColors.primaryGreen,
+  },
+  avatarSection: {
+    gap: 6,
   },
   avatarRow: {
     flexDirection: 'row',
@@ -247,20 +326,6 @@ const styles = StyleSheet.create({
   removeButtonTextDisabled: {
     color: BrandColors.highlightBlack + '40',
   },
-  field: {
-    gap: 6,
-  },
-  input: {
-    fontFamily: BrandFonts.body,
-    fontSize: 16,
-    color: BrandColors.highlightBlack,
-    borderWidth: 1,
-    borderColor: BrandColors.primaryGreen,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: BrandColors.white,
-  },
   logoutButton: {
     backgroundColor: BrandColors.primaryYellow,
     borderRadius: 8,
@@ -278,6 +343,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
   discardButton: {
     flex: 1,
     borderWidth: 1,
@@ -291,6 +359,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: BrandColors.primaryGreen,
   },
+  discardButtonTextDisabled: {
+    color: BrandColors.highlightBlack + '80',
+  },
   saveButton: {
     flex: 1,
     backgroundColor: BrandColors.primaryGreen,
@@ -298,9 +369,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
+  saveButtonDisabled: {
+    backgroundColor: BrandColors.highlightWhite,
+  },
   saveButtonText: {
     fontFamily: BrandFonts.body,
     fontSize: 15,
     color: BrandColors.white,
+  },
+  saveButtonTextDisabled: {
+    color: BrandColors.highlightBlack + '80',
   },
 });

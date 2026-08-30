@@ -20,3 +20,12 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   specialOffers: true,
   newsletter: true,
 };
+
+export const EMPTY_USER_PROFILE: UserProfile = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  avatarUri: null,
+  notifications: DEFAULT_NOTIFICATION_PREFERENCES,
+};
