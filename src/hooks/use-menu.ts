@@ -1,17 +1,35 @@
 import { useEffect, useState } from 'react';
 
 import { fetchMenuItems } from '@/services/menu-api';
-import { initMenuTable, readMenuItems, writeMenuItems } from '@/services/menu-storage';
+import {
+  filterMenuItems,
+  getMenuCategories,
+  initMenuTable,
+  readMenuItems,
+  writeMenuItems,
+} from '@/services/menu-storage';
 import { MenuItem } from '@/types/menu-item';
+
+const SEARCH_DEBOUNCE_MS = 500;
 
 type UseMenuResult = {
   menu: MenuItem[];
+  categories: string[];
+  selectedCategories: string[];
+  toggleCategory: (category: string) => void;
+  searchText: string;
+  setSearchText: (text: string) => void;
   isLoading: boolean;
 };
 
 export function useMenu(): UseMenuResult {
-  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState('');
+  const [debouncedSearchText, setDebouncedSearchText] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -20,19 +38,15 @@ export function useMenu(): UseMenuResult {
       await initMenuTable();
       const stored = await readMenuItems();
 
-      if (stored.length > 0) {
-        if (isMounted) {
-          setMenu(stored);
-          setIsLoading(false);
-        }
-        return;
+      if (stored.length === 0) {
+        const remote = await fetchMenuItems();
+        await writeMenuItems(remote);
       }
 
-      const remote = await fetchMenuItems();
-      await writeMenuItems(remote);
+      const allCategories = await getMenuCategories();
       if (isMounted) {
-        setMenu(remote);
-        setIsLoading(false);
+        setCategories(allCategories);
+        setIsReady(true);
       }
     }
 
@@ -42,5 +56,42 @@ export function useMenu(): UseMenuResult {
     };
   }, []);
 
-  return { menu, isLoading };
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearchText(searchText), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [searchText]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    let isMounted = true;
+
+    filterMenuItems(selectedCategories, debouncedSearchText).then((items) => {
+      if (isMounted) {
+        setMenu(items);
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isReady, selectedCategories, debouncedSearchText]);
+
+  function toggleCategory(category: string) {
+    setSelectedCategories((current) =>
+      current.includes(category)
+        ? current.filter((item) => item !== category)
+        : [...current, category]
+    );
+  }
+
+  return {
+    menu,
+    categories,
+    selectedCategories,
+    toggleCategory,
+    searchText,
+    setSearchText,
+    isLoading,
+  };
 }

@@ -3,4 +3,5 @@ export type MenuItem = {
   price: number;
   description: string;
   image: string;
+  category: string;
 };
